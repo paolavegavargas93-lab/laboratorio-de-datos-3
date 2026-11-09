@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Detectives de datos | Parte 3: medidas de tendencia central</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&display=swap">
+<style>
+:root{
+  --bg:#070714;--panel:#0e0e26;--panel2:#15153a;--line:#2b2b5e;
+  --cyan:#22e6ff;--magenta:#ff3fb4;--violet:#8b5cf6;--ok:#3dffa2;--warn:#ffd23f;
+  --text:#eef0ff;--muted:#a6aed8;
+  --paper:#fbfaf3;--grid:rgba(64,112,186,.17);--margin:#e5484d;--ink:#1b2145;--ink2:#4b5383;--mark:rgba(255,63,180,.28);
+  --display:"Orbitron","Segoe UI",Tahoma,Arial,sans-serif;
+  --body:"Rajdhani","Segoe UI",Tahoma,Arial,sans-serif;
+  color-scheme:dark;box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:inherit}
+[hidden]{display:none!important}
+html{scroll-padding-top:env(safe-area-inset-top,0px);background:var(--bg);-webkit-text-size-adjust:100%}
+body{margin:0;min-height:100vh;color:var(--text);font-family:var(--body);font-size:19px;line-height:1.45;font-weight:500;
+  background-color:var(--bg);
+  background-image:radial-gradient(900px 420px at 88% -8%,rgba(139,92,246,.20),transparent 62%),radial-gradient(700px 380px at -10% 105%,rgba(34,230,255,.09),transparent 60%);
+  background-repeat:no-repeat}
+button,select,input{font:inherit}
+:focus-visible{outline:3px solid var(--warn);outline-offset:2px}
+[tabindex="-1"]:focus{outline:none}
+.sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* Encabezado */
+.top{display:flex;align-items:center;gap:12px 14px;flex-wrap:wrap;padding:12px clamp(12px,3vw,28px);border-bottom:1px solid var(--line);background:rgba(7,7,20,.88)}
+.brand{font-family:var(--display);font-weight:900;font-size:.9rem;letter-spacing:.16em;color:var(--cyan);text-shadow:0 0 12px rgba(34,230,255,.55);white-space:nowrap}
+.steps{display:flex;gap:6px;overflow-x:auto;flex:1 1 420px;min-width:0;margin:0;padding:3px;list-style:none;scrollbar-width:thin}
+.step{display:inline-flex;align-items:center;gap:7px;flex:none;padding:5px 12px 5px 5px;border-radius:999px;border:1px solid var(--line);color:var(--muted);font-weight:600;font-size:.98rem}
+.step .n{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--panel2);color:var(--text);font:800 .72rem var(--display)}
+.step[aria-current="step"]{border-color:var(--cyan);color:var(--text);background:rgba(34,230,255,.08)}
+.step[aria-current="step"] .n{background:var(--cyan);color:#04121a}
+.step.done .n{background:var(--ok);color:#04121a}
+.userchip{font-weight:700;font-size:.95rem;padding:7px 12px;border-radius:8px;border:1px dashed var(--magenta);color:var(--magenta);white-space:nowrap;max-width:280px;overflow:hidden;text-overflow:ellipsis}
+.exitchip{font:800 .75rem var(--display);letter-spacing:.05em;padding:8px 12px;border-radius:8px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.exitchip.alerta{border-color:var(--magenta);color:#fff;background:rgba(255,63,180,.28)}
+.iconbtn{width:44px;height:44px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--text);font-size:1.15rem;cursor:pointer;flex:none}
+
+/* Estructura */
+main{max-width:1080px;margin:0 auto;padding:clamp(18px,3vw,34px) clamp(14px,3vw,28px) 40px}
+.screen{display:grid;gap:20px}
+.screen>*,.stack>*{min-width:0}
+.head h2{font-family:var(--display);font-weight:800;font-size:clamp(1.4rem,3.6vw,2.1rem);line-height:1.15;margin:0;letter-spacing:.01em}
+.kicker{margin:0 0 6px;font-weight:700;font-size:1.05rem;color:var(--magenta)}
+.lead{margin:8px 0 0;color:var(--muted);font-size:1.1rem;max-width:68ch}
+h3{font-weight:700;font-size:1.28rem;line-height:1.2;margin:0 0 8px}
+h4{font-weight:700;font-size:1.12rem;margin:0 0 6px}
+.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:880px){.split{grid-template-columns:1fr}}
+.stack{display:grid;gap:20px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.row.end{justify-content:flex-end}
+
+/* Hoja de cuaderno */
+.paper{position:relative;color:var(--ink);background-color:var(--paper);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:24px 24px;border-radius:3px 3px 12px 3px;padding:18px 20px 20px 56px;box-shadow:0 14px 34px rgba(0,0,0,.5);font-weight:600}
+.paper::before{content:"";position:absolute;top:0;bottom:0;left:40px;width:2px;background:var(--margin);opacity:.75}
+.copia{display:inline-flex;align-items:center;gap:7px;margin:0 0 12px;padding:4px 12px 4px 9px;border-radius:999px;background:var(--ink);color:#fff;font-weight:700;font-size:.88rem}
+.paper h3,.paper h4{color:var(--ink)}
+.paper p{margin:0 0 8px}
+.paper ol,.paper ul{margin:0 0 8px;padding-left:22px}
+.paper li{margin:5px 0}
+.paper .muted{color:var(--ink2)}
+@media (max-width:520px){.paper{padding:16px 14px 18px 44px}.paper::before{left:30px}}
+.defs{margin:0;display:grid;gap:10px}
+.defs dt{display:inline;font-weight:800;background:linear-gradient(transparent 55%,var(--mark) 55%);padding:0 2px}
+.defs dd{margin:2px 0 0}
+.ej{display:block;color:var(--ink2)}
+.ficha{display:grid;grid-template-columns:max-content 1fr;gap:6px 14px;margin:0}
+.ficha dt{font-weight:800}
+.ficha dd{margin:0}
+@media (max-width:420px){.ficha{grid-template-columns:1fr;gap:0}.ficha dd{margin-bottom:8px}}
+
+/* Laboratorio */
+.lab{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}
+.lab p{margin:0 0 10px}
+.lab .note{color:var(--muted)}
+.lab.reglas{border-color:var(--magenta);background:linear-gradient(180deg,rgba(255,63,180,.08),var(--panel) 60%)}
+.status{font:800 .8rem var(--display);letter-spacing:.05em;color:var(--cyan);margin:0}
+.bar{height:8px;border-radius:99px;background:var(--panel2);overflow:hidden;margin:8px 0 14px}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--violet));transition:width .3s}
+.msg{min-height:1.4em;margin:12px 0 0!important;font-weight:700}
+.msg.ok{color:var(--ok)}
+.msg.bad{color:#ff9fd3}
+.explica{border-left:4px solid var(--cyan);padding:10px 14px;background:var(--panel2);border-radius:0 10px 10px 0;margin:0 0 12px!important;min-height:3em}
+.paso{border-color:var(--violet)}
+.paso h3 .num{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--violet);color:#fff;font:800 .8rem var(--display);margin-right:8px;vertical-align:2px}
+.done{border:1.5px solid var(--ok);border-radius:16px;padding:16px 18px;background:rgba(61,255,162,.07)}
+.done p{margin:0}
+
+/* Botones */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:10px 18px;border-radius:10px;border:1.5px solid var(--cyan);background:rgba(34,230,255,.08);color:var(--cyan);font-family:var(--display);font-weight:800;font-size:.82rem;letter-spacing:.05em;cursor:pointer;text-align:center}
+.btn:hover:not(:disabled){background:rgba(34,230,255,.18)}
+.btn.primary{background:var(--cyan);color:#04121a;box-shadow:0 0 18px rgba(34,230,255,.35)}
+.btn.primary:hover:not(:disabled){background:#7af0ff}
+.btn.big{font-size:.95rem;padding:14px 26px}
+.btn.ghost{border-color:var(--line);color:var(--muted);background:transparent}
+.btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
+
+/* Ingreso */
+.hero{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:clamp(20px,4vw,48px);align-items:center;min-height:min(68vh,620px)}
+@media (max-width:880px){.hero{grid-template-columns:1fr;min-height:0}}
+.hero-mark{width:clamp(110px,15vw,160px);height:auto;filter:drop-shadow(0 0 10px rgba(34,230,255,.5))}
+.hero-mark .b{fill:rgba(34,230,255,.18);stroke:var(--cyan);stroke-width:3}
+.hero-mark .m{stroke:var(--magenta);stroke-width:5;stroke-linecap:round;stroke-dasharray:150;stroke-dashoffset:150;animation:draw .7s .3s ease-out forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+h1{font-family:var(--display);font-weight:900;font-size:clamp(2rem,6vw,3.5rem);line-height:1.02;margin:14px 0 10px}
+.sub{font-weight:700;font-size:1.3rem;color:var(--magenta);margin:0}
+.form{display:grid;gap:12px}
+.form label{display:grid;gap:4px;font-weight:700;font-size:1rem}
+label.show{display:flex!important;align-items:center;gap:8px;font-weight:600}
+input[type="text"],input[type="password"]{font:600 1.1rem var(--body);padding:10px 12px;border-radius:10px;border:1.5px solid var(--line);background:#0a0a20;color:var(--text);min-height:46px;width:100%}
+input[type="text"]:focus,input[type="password"]:focus{border-color:var(--cyan);outline:none;box-shadow:0 0 0 3px rgba(34,230,255,.25)}
+input[type="checkbox"]{width:22px;height:22px;accent-color:var(--cyan);margin:0;flex:none}
+.err{color:#ff9fd3;margin:0;min-height:1.2em;font-weight:700}
+.demo{margin:0;padding:10px 12px;border-radius:10px;border:1px dashed var(--warn);color:var(--warn);font-weight:600;font-size:.98rem}
+
+/* Datos */
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-grid;place-items:center;min-width:40px;padding:3px 11px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);font-weight:700;font-size:1.05rem}
+.paper .chip{background:#fff;border:1.5px solid #c9cfe8;color:var(--ink)}
+.chip.cur{background:var(--cyan);border-color:var(--cyan);color:#04121a;transform:scale(1.12)}
+.chip.hecho{opacity:.32;text-decoration:line-through}
+.ochips{display:flex;flex-wrap:wrap;gap:6px}
+.och{display:grid;justify-items:center;gap:1px}
+.och small{font-size:.75rem;color:var(--muted);font-weight:700}
+.paper .och small{color:var(--ink2)}
+.och.centro .chip{background:var(--warn);border-color:var(--warn);color:#1b1200}
+.paper .och.centro .chip{background:#ffe680;border-color:var(--ink)}
+
+/* Conteo */
+.actual{display:flex;align-items:center;gap:14px;margin:0 0 12px;flex-wrap:wrap}
+.actual .big{display:grid;place-items:center;min-width:72px;height:72px;padding:0 10px;border-radius:14px;border:2px solid var(--cyan);font:900 2.2rem var(--display);color:var(--cyan);box-shadow:0 0 18px rgba(34,230,255,.3)}
+.trows{display:grid;gap:8px;margin-top:12px}
+.trow{display:grid;grid-template-columns:64px 1fr;align-items:center;min-height:50px;border-radius:12px;border:1.5px solid var(--violet);background:rgba(139,92,246,.1);color:var(--text);cursor:pointer;text-align:left;padding:4px 12px 4px 0}
+.trow:hover:not(:disabled){background:rgba(139,92,246,.25)}
+.trow:disabled{cursor:default;opacity:.85}
+.trow .tv{font:900 1.3rem var(--display);text-align:center;border-right:1px solid var(--line)}
+.trow .tm{padding-left:12px;color:var(--cyan);min-height:26px;display:flex;align-items:center}
+.trow.nope{animation:nope .3s;border-color:var(--magenta)}
+@keyframes nope{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.tally{display:inline-block;vertical-align:middle}
+.tally line{stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+
+/* Ordenar */
+.pool{display:flex;flex-wrap:wrap;gap:8px}
+.dchip{width:52px;height:52px;border-radius:12px;border:1.5px solid var(--violet);background:rgba(139,92,246,.14);color:var(--text);font:900 1.25rem var(--display);cursor:pointer}
+.dchip:hover:not(:disabled){background:rgba(139,92,246,.32)}
+.dchip.used{opacity:.14;cursor:default}
+.dchip.nope{animation:nope .3s}
+.ordered{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:6px;margin-top:8px}
+.slot{height:46px;border-radius:10px;border:1.5px dashed var(--line);display:grid;place-items:center;font:900 1.05rem var(--display);color:var(--cyan)}
+.slot.filled{border-style:solid;border-color:var(--cyan);background:rgba(34,230,255,.08)}
+@media (max-width:560px){.ordered{grid-template-columns:repeat(5,minmax(0,1fr))}.dchip{width:46px;height:46px}}
+
+/* Tablas */
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:4px 0 14px}
+.dtable{border-collapse:collapse;width:100%;min-width:440px;font-variant-numeric:tabular-nums}
+.dtable th,.dtable td{border:1px solid var(--line);padding:6px 8px;text-align:center;vertical-align:middle}
+.dtable th{font-family:var(--display);font-size:.78rem;letter-spacing:.04em;color:var(--cyan);background:var(--panel2)}
+.dtable td.val{font-weight:800;font-size:1.1rem}
+.dtable td.tl{text-align:left;color:var(--cyan);min-width:110px}
+.dtable tfoot td{background:rgba(255,255,255,.025);font-weight:700}
+.dtable input{width:100%;min-width:62px;font:700 1.08rem var(--body);text-align:center;padding:8px 4px;border:1.5px solid var(--line);border-radius:8px;background:#0a0a20;color:var(--text)}
+.dtable input:focus,.med input:focus{border-color:var(--cyan);outline:none;box-shadow:0 0 0 3px rgba(34,230,255,.25)}
+input.ok{border-color:var(--ok)!important;background:rgba(61,255,162,.1)!important;color:var(--ok)!important}
+input.bad{border-color:var(--magenta)!important;background:rgba(255,63,180,.13)!important}
+input.rev{border-color:var(--warn)!important;color:var(--warn)!important}
+.ptable{border-collapse:collapse;width:100%;min-width:400px;font-variant-numeric:tabular-nums;color:var(--ink);background:rgba(255,255,255,.55)}
+.ptable th,.ptable td{border:1.5px solid var(--ink);padding:6px 10px;text-align:center}
+.ptable th{font-weight:800;background:rgba(27,33,69,.07)}
+.ptable td.tl{text-align:left;min-width:100px;color:var(--ink)}
+.ptable tfoot td{font-weight:800;background:rgba(27,33,69,.05)}
+.ex .c-f,.ex .c-xf{color:transparent}
+.ex .c-f .tally,.ex .c-t .tally{visibility:hidden}
+.ex.show-f .c-f,.ex.show-xf .c-xf{color:var(--ink)}
+.ex.show-f .c-t .tally{visibility:visible}
+.ex.show-moda tr.moda td{background:rgba(255,210,63,.5)}
+
+/* Medidas */
+.medgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media (max-width:820px){.medgrid{grid-template-columns:1fr}}
+.med{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--panel2);display:grid;gap:8px;align-content:start}
+.med label{display:grid;gap:4px;font-weight:700;font-size:1rem}
+.med .hint{color:var(--muted);font-size:.98rem;margin:0}
+.med input{font:700 1.15rem var(--body);text-align:center;padding:8px;border:1.5px solid var(--line);border-radius:8px;background:#0a0a20;color:var(--text);min-height:46px;width:100%}
+.pos2{display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:center}
+.ref{font-weight:700;color:var(--muted);margin:0 0 12px!important}
+.ref b{color:var(--text)}
+.mcard{display:grid;gap:4px}
+.calc{font-weight:800;font-size:1.1rem}
+
+/* Preguntas de opción múltiple */
+.mcs{display:grid;gap:12px}
+.mc{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--panel2)}
+.mc.right{border-color:var(--ok)}
+.mc.wrong{border-color:var(--magenta)}
+.mcq{font-weight:700;margin:0 0 8px!important}
+.mco{display:grid;gap:6px}
+.btn.opt{font-family:var(--body);font-size:1.05rem;letter-spacing:0;font-weight:700;justify-content:flex-start;text-align:left;border-color:var(--line);color:var(--text);background:#0a0a20}
+.btn.opt:hover:not(:disabled){border-color:var(--cyan);background:rgba(34,230,255,.08)}
+.btn.opt.correcta{border-color:var(--ok);color:var(--ok);opacity:1}
+.btn.opt.elegida{border-color:var(--magenta);color:#ff9fd3;opacity:1}
+.mc .fb{margin:8px 0 0!important;font-weight:600}
+.mc.right .fb{color:var(--ok)}
+.mc.wrong .fb{color:#ff9fd3}
+.score{font:800 .85rem var(--display);color:var(--cyan);margin-top:12px}
+
+/* Resultado */
+.nota-wrap{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 14px;margin:6px 0 10px}
+.nota{font:900 clamp(3rem,10vw,4.6rem)/1 var(--display);color:var(--cyan);text-shadow:0 0 22px rgba(34,230,255,.45)}
+.nota.alta{color:var(--ok)}
+.nota.baja{color:var(--magenta)}
+.desemp{font-weight:700;font-size:1.25rem}
+.res{list-style:none;margin:0 0 12px;padding:0}
+.res li{padding:6px 0;border-bottom:1px dashed var(--line)}
+.res li.pen{color:#ff9fd3}
+.save{padding:10px 12px;border-radius:10px;border:1px solid var(--line);font-weight:700;margin:0 0 10px!important}
+.save.ok{border-color:var(--ok);color:var(--ok)}
+.save.bad{border-color:var(--magenta);color:#ff9fd3}
+
+/* Aviso de salida */
+.modal{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:max(16px,env(safe-area-inset-top,0px)) 16px max(16px,env(safe-area-inset-bottom,0px));background:rgba(3,3,12,.88)}
+.modal-box{width:100%;max-width:520px;background:var(--panel);border:2px solid var(--magenta);border-radius:16px;padding:22px;display:grid;gap:12px;box-shadow:0 0 40px rgba(255,63,180,.35)}
+.modal-box h2{font-family:var(--display);font-weight:800;font-size:1.3rem;margin:0;color:var(--magenta)}
+.modal-box p{margin:0}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .hero-mark .m{stroke-dashoffset:0}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">MISAELVERSE</div>
+  <ol class="steps" id="steps" aria-label="Progreso de la misión"></ol>
+  <span class="userchip" id="userchip" hidden></span>
+  <span class="exitchip" id="exitchip" hidden>Salidas: 0</span>
+  <button class="iconbtn" id="sound" type="button" aria-pressed="true" aria-label="Sonido activado" title="Sonido">🔊</button>
+</header>
+
+<main>
+
+<!-- 0. INGRESO -->
+<section class="screen" id="s0" aria-labelledby="t0">
+  <div class="hero">
+    <div>
+      <svg class="hero-mark" viewBox="0 0 160 110" aria-hidden="true">
+        <rect class="b" x="10" y="62" width="24" height="40" rx="3"/><rect class="b" x="42" y="38" width="24" height="64" rx="3"/>
+        <rect class="b" x="74" y="18" width="24" height="84" rx="3"/><rect class="b" x="106" y="46" width="24" height="56" rx="3"/>
+        <line class="m" x1="4" y1="52" x2="152" y2="52"/>
+      </svg>
+      <h1 id="t0" tabindex="-1">Detectives de datos</h1>
+      <p class="sub">Parte 3: el centro de los datos</p>
+      <p class="lead">Aprende a encontrar la media, la mediana y la moda. Primero verás un ejemplo resuelto paso a paso. Después resolverás cuatro casos tú mismo: conteo, tabla, datos ordenados y medidas.</p>
+    </div>
+    <form class="lab form" id="loginForm" novalidate>
+      <h3>Ingresa a tu misión</h3>
+      <label>Usuario<input type="text" id="inUser" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="60"></label>
+      <label>Clave<input type="password" id="inPass" autocomplete="current-password" maxlength="40"></label>
+      <label class="show"><input type="checkbox" id="showPass">Mostrar la clave</label>
+      <p class="err" id="loginErr" role="alert"></p>
+      <button class="btn primary big" type="submit" id="btnLogin">Entrar</button>
+      <p class="demo" id="demoNote" hidden>Modo prueba: usuario <b>prueba</b> y clave <b>1234</b>. Los resultados no se guardan en Sheets hasta que pegues la URL del Apps Script en el código.</p>
+    </form>
+  </div>
+</section>
+
+<!-- 1. MISIÓN Y REGLAS -->
+<section class="screen" id="s1" hidden aria-labelledby="t1">
+  <div class="head">
+    <p class="kicker" id="intentoTxt">Intento 1</p>
+    <h2 id="t1" tabindex="-1">Hola, detective</h2>
+    <p class="lead">Ya sabes organizar datos en una tabla. Ahora vas a descubrir el número que mejor representa a todo un grupo de datos.</p>
+  </div>
+  <div class="split">
+    <div class="lab">
+      <h3>Así está organizada tu misión</h3>
+      <ol style="margin:0 0 12px;padding-left:24px">
+        <li><b>Ejemplo guiado:</b> media, mediana y moda paso a paso.</li>
+        <li><b>Reto de conceptos:</b> 8 preguntas.</li>
+        <li><b>Cuatro ejercicios:</b> en cada uno haces el conteo, la tabla, ordenas los datos y calculas las tres medidas.</li>
+        <li><b>Reto final:</b> 4 preguntas para analizar.</li>
+      </ol>
+      <p class="note">Tiempo aproximado: entre 60 y 75 minutos. Tu nota sale así: reto de conceptos 15&nbsp;%, ejercicios 70&nbsp;% y reto final 15&nbsp;%. En las tablas y en las medidas cuenta lo que tengas bien en la primera revisión.</p>
+    </div>
+    <div class="lab reglas">
+      <h3>Reglas de la misión</h3>
+      <ol style="margin:0 0 12px;padding-left:24px">
+        <li>No salgas de esta pestaña. No abras otras páginas ni otras aplicaciones.</li>
+        <li>Cada salida queda registrada y resta <b id="penTxt">0,2</b> de tu nota final.</li>
+        <li>Tu avance se guarda cada vez que terminas un ejercicio.</li>
+      </ol>
+      <label class="show"><input type="checkbox" id="acepto">Entendí las reglas</label>
+    </div>
+  </div>
+  <div class="row end"><button class="btn primary big" type="button" id="go2" disabled>Empezar el ejemplo</button></div>
+</section>
+
+<!-- 2. EJEMPLO GUIADO -->
+<section class="screen" id="s2" hidden aria-labelledby="t2">
+  <div class="head">
+    <p class="kicker">Ejemplo guiado</p>
+    <h2 id="t2" tabindex="-1">El centro de los datos</h2>
+    <p class="lead">Mira cómo se calculan las tres medidas con un caso real y copia cada hoja en tu cuaderno.</p>
+  </div>
+  <div class="paper">
+    <span class="copia">Copia en tu cuaderno</span>
+    <h3>Medidas de tendencia central</h3>
+    <p>Son valores que representan el centro de un conjunto de datos, es decir, lo que es típico del grupo. Las tres principales son la <b>media</b>, la <b>mediana</b> y la <b>moda</b>.</p>
+    <p class="muted" style="margin:0">Trabajamos con <b>datos sin agrupar</b>: cada dato se escribe tal como es, sin juntarlos en intervalos.</p>
+  </div>
+  <div class="split">
+    <div class="paper">
+      <span class="copia">Copia en tu cuaderno</span>
+      <h3>Ejemplo: libros en vacaciones</h3>
+      <p>Preguntamos a 10 estudiantes cuántos libros leyeron en vacaciones:</p>
+      <div class="chips" id="exRaw"></div>
+      <p class="muted" style="margin-top:10px">Variable: número de libros. n = 10.</p>
+    </div>
+    <div class="lab">
+      <p class="status" id="exStat">Paso 0 de 6</p>
+      <div class="bar"><i id="exBar"></i></div>
+      <p class="explica" id="exTxt" aria-live="polite">Toca el botón para empezar a resolver el ejemplo.</p>
+      <button class="btn primary" type="button" id="exBtn">Paso 1: hacer el conteo</button>
+    </div>
+  </div>
+  <div class="paper" id="exTablaBox" hidden>
+    <span class="copia">Copia en tu cuaderno</span>
+    <h3>Tabla de frecuencias</h3>
+    <div class="tablewrap">
+      <table class="ptable ex" id="exTabla"></table>
+    </div>
+  </div>
+  <div class="paper" id="exOrdBox" hidden>
+    <span class="copia">Copia en tu cuaderno</span>
+    <h3>Datos ordenados de menor a mayor</h3>
+    <div class="ochips" id="exOrd"></div>
+  </div>
+  <div class="paper" id="exMedBox" hidden>
+    <span class="copia">Copia en tu cuaderno</span>
+    <h3>Las tres medidas</h3>
+    <dl class="defs">
+      <div id="exMedia" hidden><dt>Media o promedio</dt><dd>Se suman todos los datos y se divide entre n. Con la tabla: media = (suma de x · f) ÷ n.<span class="ej">En el ejemplo: 30 ÷ 10 = 3 libros.</span></dd></div>
+      <div id="exMediana" hidden><dt>Mediana</dt><dd>Es el dato del centro cuando los datos están ordenados. Si n es impar, está en la posición (n + 1) ÷ 2. Si n es par, es el promedio de los datos de las posiciones n ÷ 2 y n ÷ 2 + 1.<span class="ej">En el ejemplo, n = 10 es par: posiciones 5 y 6. (2 + 3) ÷ 2 = 2,5 libros.</span></dd></div>
+      <div id="exModa" hidden><dt>Moda</dt><dd>Es el dato que más se repite, el de mayor f. Si dos datos empatan con la f más grande, hay dos modas (bimodal). Si ningún dato se repite más que otro, no hay moda.<span class="ej">En el ejemplo: 1 libro, con f = 3.</span></dd></div>
+    </dl>
+  </div>
+  <div class="row end"><button class="btn primary big" type="button" id="go3" disabled>Continuar: reto de conceptos</button></div>
+</section>
+
+<!-- 3. RETO DE CONCEPTOS -->
+<section class="screen" id="s3" hidden aria-labelledby="t3">
+  <div class="head">
+    <p class="kicker">Reto de conceptos</p>
+    <h2 id="t3" tabindex="-1">¿Media, mediana o moda?</h2>
+    <p class="lead">Elige una respuesta en cada pregunta. Solo cuenta la primera que toques.</p>
+  </div>
+  <div class="lab">
+    <div class="mcs" id="quiz"></div>
+    <p class="score" id="quizScore" aria-live="polite">Aciertos: 0 de 8</p>
+  </div>
+  <div class="row end"><button class="btn primary big" type="button" id="go4" disabled>Continuar: ejercicio 1</button></div>
+</section>
+
+<!-- 4 a 7. EJERCICIOS (se construyen con JavaScript) -->
+<section class="screen" id="s4" hidden aria-labelledby="et0"></section>
+<section class="screen" id="s5" hidden aria-labelledby="et1"></section>
+<section class="screen" id="s6" hidden aria-labelledby="et2"></section>
+<section class="screen" id="s7" hidden aria-labelledby="et3"></section>
+
+<!-- 8. RETO FINAL -->
+<section class="screen" id="s8" hidden aria-labelledby="t8">
+  <div class="head">
+    <p class="kicker">Reto final</p>
+    <h2 id="t8" tabindex="-1">Piensa como detective</h2>
+    <p class="lead">Ahora no hay que calcular todo: hay que entender qué dice cada medida. Solo cuenta la primera respuesta.</p>
+  </div>
+  <div class="lab">
+    <div class="mcs" id="reto"></div>
+    <p class="score" id="retoScore" aria-live="polite">Aciertos: 0 de 4</p>
+  </div>
+  <div class="row end"><button class="btn primary big" type="button" id="go9" disabled>Ver mi resultado</button></div>
+</section>
+
+<!-- 9. RESULTADO -->
+<section class="screen" id="s9" hidden aria-labelledby="t9">
+  <div class="head"><h2 id="t9" tabindex="-1">Misión cumplida</h2></div>
+  <div class="split">
+    <div class="lab">
+      <h3>Tu resultado</h3>
+      <div class="nota-wrap"><span class="nota" id="rNota">1,0</span><span class="desemp" id="rDesemp"></span></div>
+      <ul class="res" id="rRes"></ul>
+      <p class="save" id="rSave" aria-live="polite">Guardando tus resultados…</p>
+      <div class="row">
+        <button class="btn" type="button" id="btnRetry" hidden>Intentar de nuevo</button>
+        <button class="btn ghost" type="button" id="btnSalir">Cerrar sesión</button>
+      </div>
+    </div>
+    <div class="paper">
+      <span class="copia">Para tu cuaderno</span>
+      <h3>Deja tu trabajo en el cuaderno</h3>
+      <ol>
+        <li>Copia las definiciones de media, mediana y moda.</li>
+        <li>Copia el ejemplo de los libros con su tabla.</li>
+        <li>De cada ejercicio, copia la tabla y las tres medidas.</li>
+        <li>Escribe con tus palabras: ¿cuál de las tres medidas te pareció más fácil de calcular y por qué?</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- Aviso de salida -->
+<div class="modal" id="aviso" hidden role="alertdialog" aria-modal="true" aria-labelledby="avT" aria-describedby="avD">
+  <div class="modal-box">
+    <h2 id="avT">Saliste del OVA</h2>
+    <p id="avD"></p>
+    <div class="row"><button class="btn primary" type="button" id="avOk">Volver a la misión</button></div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ===================== CONFIGURACIÓN ===================== */
+/* URL de la aplicación web de Apps Script (termina en /exec).
+   Si la dejas vacía, el OVA funciona en modo prueba: usuario "prueba", clave "1234". */
+var URL_SHEETS = "https://script.google.com/macros/s/AKfycbzHTvtPqXZ0smqgn6IqclCrQVeH8jyajf87LlsFg3PUVsT6OeQR9393Lm2BS2q8jiFR/exec";
+var PENALIZACION = 0.2;    /* nota que se resta por cada salida */
+var ESPERA_BLUR = 2500;     /* milisegundos fuera de foco antes de contar la salida */
+/* ========================================================== */
+
+var $=function(s){return document.querySelector(s);};
+var $$=function(s){return Array.prototype.slice.call(document.querySelectorAll(s));};
+var reduced=!!(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+
+var PASOS=["Ingreso","Misión","Ejemplo","Conceptos","Ejercicio 1","Ejercicio 2","Ejercicio 3","Ejercicio 4","Reto final","Resultado"];
+var ICON_NB='<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><rect x="3" y="1.5" width="10" height="13" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M6 5h5M6 8h5M6 11h3" stroke="currentColor" stroke-width="1.4"/></svg>';
+
+var EJS=[
+  {titulo:"¿Cuántos goles anota el equipo?",ctx:"El equipo de microfútbol de sexto jugó 11 partidos. Estos son los goles que anotó en cada partido, en el orden en que se jugaron.",pregunta:"¿Cuántos goles anota el equipo por partido?",variable:"Número de goles por partido",unidad:"goles",n:11,vals:[0,1,2,3,4,5],w:[1.5,3,3,2,1,.6],ayuda:true},
+  {titulo:"¿Cuántos hermanos tienen?",ctx:"Preguntamos a 12 estudiantes cuántos hermanos tienen.",pregunta:"¿Cuántos hermanos tienen los estudiantes?",variable:"Número de hermanos",unidad:"hermanos",n:12,vals:[0,1,2,3,4],w:[1.2,3,2.5,1.2,.6],ayuda:true},
+  {titulo:"¿Cuántas horas duermen?",ctx:"15 estudiantes contaron cuántas horas durmieron anoche.",pregunta:"¿Cuántas horas duermen los estudiantes?",variable:"Horas de sueño",unidad:"horas",n:15,vals:[6,7,8,9,10],w:[.8,2,3,2.5,1],ayuda:false},
+  {titulo:"¿Qué tan rico estuvo el refrigerio?",ctx:"20 estudiantes calificaron el refrigerio de hoy con estrellas, de 1 a 5.",pregunta:"¿Cómo califican los estudiantes el refrigerio?",variable:"Número de estrellas",unidad:"estrellas",n:20,vals:[1,2,3,4,5],w:[.6,1,2,3,2.5],ayuda:false}
+];
+var QUIZ=[
+  {q:"¿Cómo se calcula la media?",o:["Se escoge el dato que más se repite","Se suman todos los datos y se divide entre el número de datos","Se ordenan los datos y se toma el del centro"],a:1,e:"La media es el promedio: la suma de los datos dividida entre n."},
+  {q:"¿Qué debes hacer antes de buscar la mediana?",o:["Ordenar los datos de menor a mayor","Sumar todos los datos","Buscar el dato más grande"],a:0,e:"La mediana es el dato del centro de los datos ordenados."},
+  {q:"¿Cuál es la mediana de 2, 4, 4, 7, 9?",o:["5,2","4","7"],a:1,e:"Son 5 datos: el centro es la posición 3, donde está el 4."},
+  {q:"¿Cuál es la mediana de 2, 3, 5, 6?",o:["3","5","4"],a:2,e:"Son 4 datos: los del centro son 3 y 5. (3 + 5) ÷ 2 = 4."},
+  {q:"¿Cuál es la moda de 3, 5, 5, 6, 8, 8, 8?",o:["5","8","6"],a:1,e:"El 8 aparece tres veces, más que cualquier otro dato."},
+  {q:"¿Cuál es la media de 4, 6 y 8?",o:["6","18","8"],a:0,e:"(4 + 6 + 8) ÷ 3 = 18 ÷ 3 = 6."},
+  {q:"¿Cuál es la moda de 2, 2, 5, 5, 7?",o:["7","No tiene moda","Tiene dos modas: 2 y 5"],a:2,e:"El 2 y el 5 aparecen dos veces cada uno: el conjunto es bimodal."},
+  {q:"¿Cuál es la moda de 1, 2, 3, 4?",o:["No tiene moda","1","2,5"],a:0,e:"Ningún dato se repite más que los otros, así que no hay moda."}
+];
+var RETO=[
+  {q:"Las notas de Sara son 4, 4, 5 y 1. Si el profesor le borra el 1, ¿qué pasa con su media?",o:["Baja","Queda igual","Sube"],a:2,e:"Antes: 14 ÷ 4 = 3,5. Sin el 1: 13 ÷ 3 ≈ 4,3. Al quitar un dato muy bajo, la media sube."},
+  {q:"En un salón las edades son 11, 11, 12, 12, 12, 13 y 40, que es la edad del profesor. ¿Qué medida representa mejor la edad típica del grupo?",o:["La media","La mediana","Ninguna de las dos"],a:1,e:"La media es 111 ÷ 7 ≈ 15,9 porque el 40 la jala hacia arriba. La mediana es 12, que sí se parece a la mayoría."},
+  {q:"Una tienda de zapatos quiere saber qué talla pedir en mayor cantidad. ¿Qué medida le sirve más?",o:["La moda","La media","La mediana"],a:0,e:"La moda dice qué talla se vende más veces."},
+  {q:"Si a cada dato de un grupo le sumas 2, ¿qué pasa con la media?",o:["Queda igual","Aumenta en 2","Se duplica"],a:1,e:"Si todos los datos suben 2, el promedio también sube 2."}
+];
+
+/* Ejemplo guiado */
+var EX={raw:[3,1,5,2,1,6,4,1,5,2],vals:[1,2,3,4,5,6]};
+var EX_PASOS=[
+  {btn:"Paso 2: calcular x · f",txt:"Contamos cuántas veces aparece cada valor x. Con 10 datos, la suma de todas las f debe dar 10."},
+  {btn:"Paso 3: calcular la media",txt:"Multiplicamos cada valor x por su frecuencia f. Así sumamos rápido todos los datos: la suma de x · f es 30."},
+  {btn:"Paso 4: ordenar los datos",txt:"La media reparte el total en partes iguales: 30 ÷ 10 = 3. En promedio, cada estudiante leyó 3 libros."},
+  {btn:"Paso 5: encontrar la mediana",txt:"Para la mediana necesitamos los datos ordenados de menor a mayor. Debajo de cada dato está su posición."},
+  {btn:"Paso 6: encontrar la moda",txt:"Como n = 10 es par, el centro queda entre las posiciones 5 y 6. La mediana es el promedio de esos dos datos: (2 + 3) ÷ 2 = 2,5."},
+  {btn:"Ejemplo completo",txt:"La moda es el valor con la f más grande: el 1 aparece 3 veces. Las tres medidas son distintas: media 3, mediana 2,5 y moda 1. Cada una mira el centro de una forma diferente."}
+];
+
+var S={};
+
+/* ===== Utilidades ===== */
+function seedFrom(str){var h=2166136261>>>0;for(var i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}return h;}
+function mulberry32(a){return function(){a|=0;a=(a+0x6D2B79F5)|0;var t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};}
+function pickW(r,w){var tot=0,i;for(i=0;i<w.length;i++)tot+=w[i];var x=r()*tot;for(i=0;i<w.length;i++){x-=w[i];if(x<0)return i;}return w.length-1;}
+function maxOf(c){return Math.max.apply(null,c);}
+function suma(a){return a.reduce(function(s,x){return s+x;},0);}
+function coma(x){return String(x).replace(".",",");}
+function fmt(x){var r=Math.round(x*100)/100;return coma(r%1===0?String(r):String(r));}
+function num(s){
+  s=String(s==null?"":s).trim().replace(/\s/g,"").replace("%","");
+  if(!s)return NaN;
+  if(s.indexOf("/")>=0){var p=s.split("/");var a=parseFloat(p[0].replace(",",".")),b=parseFloat(p[1].replace(",","."));return b?a/b:NaN;}
+  if(!/^-?\d*[.,]?\d+$/.test(s))return NaN;
+  return parseFloat(s.replace(",","."));
+}
+function igual(a,b){return !isNaN(a)&&Math.abs(a-b)<0.005;}
+var MENORES={de:1,del:1,la:1,las:1,los:1,y:1};
+function nombreBonito(n){
+  return String(n||"").trim().toLowerCase().split(/\s+/).map(function(w,i){
+    if(i>0&&MENORES[w])return w;
+    return w.split("-").map(function(p){return p.charAt(0).toUpperCase()+p.slice(1);}).join("-");
+  }).join(" ");
+}
+function shake(el){if(reduced||!el)return;el.classList.remove("nope");void el.offsetWidth;el.classList.add("nope");}
+function msg(el,text,tipo){if(typeof el==="string")el=$(el);el.textContent=text;el.className="msg"+(tipo?" "+tipo:"");}
+function tallySVG(n){
+  if(!n)return "";
+  var g=Math.ceil(n/5),W=g*34,s='<svg class="tally" viewBox="0 0 '+W+' 26" width="'+W+'" height="26" aria-hidden="true">';
+  for(var j=0;j<g;j++){
+    var m=Math.min(5,n-j*5),x0=j*34+5;
+    for(var k=0;k<Math.min(4,m);k++){var x=x0+k*6;s+='<line x1="'+x+'" y1="4" x2="'+x+'" y2="22"/>';}
+    if(m===5)s+='<line x1="'+(x0-4)+'" y1="18" x2="'+(x0+22)+'" y2="8"/>';
+  }
+  return s+'</svg><span class="sr">'+n+'</span>';
+}
+function mediana(sorted){var n=sorted.length;return n%2?sorted[(n-1)/2]:(sorted[n/2-1]+sorted[n/2])/2;}
+function posiciones(n){return n%2?[(n+1)/2]:[n/2,n/2+1];}
+function idSesion(){var a=new Uint32Array(2);if(window.crypto&&crypto.getRandomValues)crypto.getRandomValues(a);else{a[0]=Math.random()*4e9;a[1]=Math.random()*4e9;}return Date.now().toString(36)+"-"+a[0].toString(36)+a[1].toString(36);}
+
+/* ===== Sonido ===== */
+var actx=null,sonido=true;
+function tono(f,d,tipo,vol,ret){
+  if(!sonido)return;
+  try{
+    if(!actx){var AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;actx=new AC();}
+    if(actx.state==="suspended")actx.resume();
+    var t=actx.currentTime+(ret||0),o=actx.createOscillator(),g=actx.createGain();
+    o.type=tipo||"sine";o.frequency.setValueAtTime(f,t);
+    g.gain.setValueAtTime(vol||0.06,t);g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+    o.connect(g);g.connect(actx.destination);o.start(t);o.stop(t+d+0.03);
+  }catch(e){}
+}
+var SFX={
+  clic:function(){tono(520,.05,"triangle",.04);},
+  tic:function(){tono(880,.04,"square",.025);},
+  bien:function(){tono(660,.08,"sine",.06);tono(990,.12,"sine",.06,.07);},
+  mal:function(){tono(180,.18,"sawtooth",.035);},
+  alarma:function(){tono(330,.2,"square",.05);tono(220,.3,"square",.05,.2);},
+  logro:function(){[523,659,784,1047].forEach(function(f,i){tono(f,.18,"triangle",.06,i*.1);});}
+};
+
+/* ===== Conexión con Google Sheets ===== */
+function api(payload){
+  var ctrl=window.AbortController?new AbortController():null;
+  var tm=setTimeout(function(){if(ctrl)ctrl.abort();},20000);
+  return fetch(URL_SHEETS,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(payload),redirect:"follow",signal:ctrl?ctrl.signal:undefined})
+    .then(function(r){return r.json();})
+    .finally(function(){clearTimeout(tm);});
+}
+function demo(p){
+  return new Promise(function(res){setTimeout(function(){
+    if(p.accion==="login"){
+      if(String(p.usuario).toLowerCase()==="prueba"&&p.clave==="1234")res({ok:true,usuario:"prueba",nombre:"Estudiante de prueba",curso:"601",intentos:0});
+      else res({ok:false,error:"En modo prueba usa el usuario prueba y la clave 1234."});
+    }else res({ok:true,demo:true});
+  },300);});
+}
+function llamar(p){return URL_SHEETS?api(p):demo(p);}
+function errorRed(e){return e&&e.name==="AbortError"?"La hoja tardó demasiado en responder. Intenta de nuevo.":"No se pudo conectar con la hoja. Revisa el internet e intenta de nuevo.";}
+
+/* ===== Calificación ===== */
+function puntajeEj(e){
+  var c=Math.max(0,1-e.conteo.err/5),t=e.tabla.prim/e.tabla.tot,o=Math.max(0,1-e.orden.err/5),m=e.med.prim/4;
+  return Math.round((0.15*c+0.30*t+0.15*o+0.40*m)*100);
+}
+function calcular(){
+  var q=suma(Object.keys(S.quiz).map(function(k){return S.quiz[k]?1:0;}));
+  var r=suma(Object.keys(S.reto).map(function(k){return S.reto[k]?1:0;}));
+  var ej=S.E.map(function(e){return e.done?e.score:0;});
+  var base=1+4*(0.15*q/QUIZ.length+0.70*suma(ej)/400+0.15*r/RETO.length);
+  base=Math.round(base*10)/10;
+  var pen=Math.round(S.salidas*PENALIZACION*10)/10;
+  var nota=Math.max(1,Math.round((base-pen)*10)/10);
+  var d=nota>=4.6?"Superior":nota>=4?"Alto":nota>=3?"Básico":"Bajo";
+  return {q:q,r:r,ej:ej,base:base,pen:pen,nota:nota,desempeno:d};
+}
+function payload(estado){
+  var c=calcular();
+  return {accion:"guardarMedidas",usuario:S.user.usuario,clave:S.clave,sesion:S.sesion,intento:S.user.intento,estado:estado,
+    terminados:S.E.filter(function(e){return e.done;}).length,
+    quiz:Object.keys(S.quiz).length===QUIZ.length?c.q:"",
+    ej:S.E.map(function(e){return e.done?e.score:"";}),
+    reto:Object.keys(S.reto).length===RETO.length?c.r:"",
+    salidas:S.salidas,fuera:S.fuera,notaBase:c.base,penal:c.pen,nota:c.nota,desempeno:c.desempeno,
+    minutos:Math.round((Date.now()-S.t0)/6000)/10};
+}
+var enviando=false,pendiente=false;
+function guardarAvance(){
+  if(!URL_SHEETS||!S.user||S.terminado)return;
+  if(enviando){pendiente=true;return;}
+  enviando=true;
+  api(payload("En curso")).catch(function(){}).finally(function(){enviando=false;if(pendiente){pendiente=false;guardarAvance();}});
+}
+
+/* ===== Navegación ===== */
+function buildSteps(){$("#steps").innerHTML=PASOS.map(function(t,i){return '<li class="step"><span class="n">'+(i+1)+'</span>'+t+'</li>';}).join("");}
+function go(n){
+  S.screen=n;
+  $$(".screen").forEach(function(s,i){s.hidden=i!==n;});
+  $$(".step").forEach(function(li,i){
+    if(i===n)li.setAttribute("aria-current","step");else li.removeAttribute("aria-current");
+    li.classList.toggle("done",i<n);
+  });
+  window.scrollTo(0,0);
+  var h=document.querySelector("#s"+n+" h1, #s"+n+" h2");
+  if(h)try{h.focus({preventScroll:true});}catch(e){h.focus();}
+  var cur=document.querySelector('.step[aria-current="step"]');
+  if(cur){var nav=$("#steps");nav.scrollLeft=Math.max(0,cur.offsetLeft-nav.clientWidth/2+cur.clientWidth/2);}
+}
+
+/* ===== Control de salidas ===== */
+var fuera={activa:false,inicio:0,timer:null};
+function vigilando(){return !!(S.user&&!S.terminado);}
+function registrarSalida(){
+  if(fuera.activa||!vigilando())return;
+  clearTimeout(fuera.timer);
+  fuera.activa=true;fuera.inicio=Date.now();
+  S.salidas++;updSalidas();
+}
+function volver(){
+  if(!fuera.activa)return;
+  fuera.activa=false;
+  S.fuera+=Math.round((Date.now()-fuera.inicio)/1000);
+  var pen=Math.round(S.salidas*PENALIZACION*10)/10;
+  $("#avD").textContent="Esta es tu salida número "+S.salidas+". Quedó registrada en la hoja de tu docente. Cada salida resta "+coma(PENALIZACION)+" de tu nota final; hasta ahora llevas −"+coma(pen.toFixed(1))+".";
+  $("#aviso").hidden=false;SFX.alarma();
+  setTimeout(function(){$("#avOk").focus();},30);
+  guardarAvance();
+}
+function updSalidas(){
+  var c=$("#exitchip");c.hidden=!S.user;c.textContent="Salidas: "+(S.salidas||0);
+  c.classList.toggle("alerta",(S.salidas||0)>0);
+}
+document.addEventListener("visibilitychange",function(){
+  if(!vigilando())return;
+  if(document.hidden)registrarSalida();else volver();
+});
+window.addEventListener("blur",function(){
+  if(!vigilando()||fuera.activa)return;
+  clearTimeout(fuera.timer);
+  fuera.timer=setTimeout(function(){if(!document.hasFocus())registrarSalida();},ESPERA_BLUR);
+});
+window.addEventListener("focus",function(){clearTimeout(fuera.timer);if(fuera.activa&&!document.hidden)volver();});
+window.addEventListener("pagehide",function(){
+  if(!URL_SHEETS||!vigilando()||!navigator.sendBeacon)return;
+  try{navigator.sendBeacon(URL_SHEETS,new Blob([JSON.stringify(payload("Salió sin terminar"))],{type:"text/plain"}));}catch(e){}
+});
+window.addEventListener("beforeunload",function(e){if(vigilando()){e.preventDefault();e.returnValue="";}});
+
+/* ===== Ingreso ===== */
+function entrar(e){
+  e.preventDefault();SFX.clic();
+  var u=$("#inUser").value.trim(),c=$("#inPass").value.trim(),b=$("#btnLogin");
+  if(!u||!c){$("#loginErr").textContent="Escribe tu usuario y tu clave.";return;}
+  $("#loginErr").textContent="";b.disabled=true;b.textContent="Verificando…";
+  llamar({accion:"login",actividad:"medidas",usuario:u,clave:c}).then(function(r){
+    if(!r||!r.ok){$("#loginErr").textContent=(r&&r.error)||"No se pudo ingresar.";SFX.mal();return;}
+    iniciar(r,c);
+  }).catch(function(err){$("#loginErr").textContent=errorRed(err);SFX.mal();})
+  .finally(function(){b.disabled=false;b.textContent="Entrar";});
+}
+function iniciar(r,clave){
+  var intento=(parseInt(r.intentos,10)||0)+1;
+  S={screen:1,clave:clave,t0:Date.now(),sesion:idSesion(),terminado:false,guardado:false,salidas:0,fuera:0,
+    user:{usuario:String(r.usuario),nombre:nombreBonito(r.nombre||r.usuario),curso:String(r.curso||""),intento:intento},
+    quiz:{},reto:{},ex:0,E:[]};
+  EJS.forEach(function(cfg,k){S.E.push(crearEj(k,cfg,S.user.usuario.toLowerCase()+"#medidas#"+intento));});
+  $("#userchip").hidden=false;$("#userchip").textContent=S.user.nombre+(S.user.curso?" | "+S.user.curso:"");
+  $("#t1").textContent="Hola, "+S.user.nombre;
+  $("#intentoTxt").textContent="Intento "+intento+(S.user.curso?", curso "+S.user.curso:"");
+  $("#t9").textContent="Misión cumplida, "+S.user.nombre;
+  $("#inPass").value="";$("#acepto").checked=false;$("#go2").disabled=true;
+  renderEjemplo();renderMC("#quiz",QUIZ,"q");renderMC("#reto",RETO,"r");
+  $("#quizScore").textContent="Aciertos: 0 de "+QUIZ.length;$("#retoScore").textContent="Aciertos: 0 de "+RETO.length;
+  ["#go3","#go4","#go9"].forEach(function(id){$(id).disabled=true;});
+  S.E.forEach(function(e,k){renderEj(k);});
+  updSalidas();
+  go(1);
+  guardarAvance();
+}
+
+/* ===== Ejemplo guiado ===== */
+function renderEjemplo(){
+  S.ex=0;
+  $("#exRaw").innerHTML=EX.raw.map(function(v){return '<span class="chip">'+v+'</span>';}).join("");
+  var c=EX.vals.map(function(v){return EX.raw.filter(function(x){return x===v;}).length;});
+  var m=maxOf(c);
+  $("#exTabla").className="ptable ex";
+  $("#exTabla").innerHTML='<thead><tr><th>x (libros)</th><th>Conteo</th><th class="c-f">f</th><th class="c-xf">x · f</th></tr></thead><tbody>'+
+    EX.vals.map(function(v,i){return '<tr'+(c[i]===m?' class="moda"':'')+'><td>'+v+'</td><td class="tl c-t">'+tallySVG(c[i])+'</td><td class="c-f">'+c[i]+'</td><td class="c-xf">'+v+' · '+c[i]+' = '+(v*c[i])+'</td></tr>';}).join("")+
+    '</tbody><tfoot><tr><td>Total</td><td></td><td class="c-f">n = 10</td><td class="c-xf">30</td></tr></tfoot>';
+  var ord=EX.raw.slice().sort(function(a,b){return a-b;});
+  $("#exOrd").innerHTML=ord.map(function(v,i){return '<span class="och" id="exo'+i+'"><span class="chip">'+v+'</span><small>'+(i+1)+'</small></span>';}).join("");
+  ["#exTablaBox","#exOrdBox","#exMedBox","#exMedia","#exMediana","#exModa"].forEach(function(id){$(id).hidden=true;});
+  $("#exTxt").textContent="Toca el botón para empezar a resolver el ejemplo.";
+  $("#exBtn").textContent="Paso 1: hacer el conteo";$("#exBtn").disabled=false;
+  exEstado();
+}
+function exEstado(){$("#exStat").textContent="Paso "+S.ex+" de 6";$("#exBar").style.width=(S.ex/6*100)+"%";}
+function exSiguiente(){
+  if(S.ex>=6)return;
+  S.ex++;var t=$("#exTabla");
+  if(S.ex===1){$("#exTablaBox").hidden=false;t.classList.add("show-f");}
+  if(S.ex===2){t.classList.add("show-xf");}
+  if(S.ex===3){$("#exMedBox").hidden=false;$("#exMedia").hidden=false;}
+  if(S.ex===4){$("#exOrdBox").hidden=false;}
+  if(S.ex===5){$("#exMediana").hidden=false;$("#exo4").classList.add("centro");$("#exo5").classList.add("centro");}
+  if(S.ex===6){$("#exModa").hidden=false;t.classList.add("show-moda");}
+  var p=EX_PASOS[S.ex-1];
+  $("#exTxt").textContent=p.txt;$("#exBtn").textContent=p.btn;
+  if(S.ex===6){$("#exBtn").disabled=true;$("#go3").disabled=false;SFX.logro();}else SFX.bien();
+  exEstado();
+}
+
+/* ===== Preguntas de opción múltiple ===== */
+function renderMC(box,P,key){
+  $(box).innerHTML=P.map(function(p,i){
+    return '<div class="mc" id="'+key+i+'"><p class="mcq">'+(i+1)+'. '+p.q+'</p><div class="mco">'+
+      p.o.map(function(o,j){return '<button class="btn opt" type="button" data-key="'+key+'" data-i="'+i+'" data-j="'+j+'">'+o+'</button>';}).join("")+
+      '</div><p class="fb" hidden></p></div>';
+  }).join("");
+}
+function responderMC(btn){
+  var key=btn.getAttribute("data-key"),i=+btn.getAttribute("data-i"),j=+btn.getAttribute("data-j");
+  var set=key==="q"?S.quiz:S.reto,P=key==="q"?QUIZ:RETO;
+  if(set[i]!==undefined)return;
+  var ok=j===P[i].a;set[i]=ok;
+  var box=$("#"+key+i);box.classList.add(ok?"right":"wrong");
+  box.querySelectorAll(".opt").forEach(function(b,k){b.disabled=true;if(k===P[i].a)b.classList.add("correcta");});
+  if(!ok)btn.classList.add("elegida");
+  var fb=box.querySelector(".fb");fb.hidden=false;fb.textContent=(ok?"✓ Correcto. ":"✗ No es esa. ")+P[i].e;
+  if(ok)SFX.bien();else SFX.mal();
+  var n=Object.keys(set).length,buenas=suma(Object.keys(set).map(function(k){return set[k]?1:0;}));
+  $(key==="q"?"#quizScore":"#retoScore").textContent="Aciertos: "+buenas+" de "+P.length+(n===P.length?". ¡Reto terminado!":"");
+  if(n===P.length){
+    SFX.logro();
+    if(key==="q"){$("#go4").disabled=false;guardarAvance();}else{$("#go9").disabled=false;}
+  }
+}
+
+/* ===== Ejercicios ===== */
+function crearEj(k,cfg,seed){
+  var r=mulberry32(seedFrom(seed+"#"+k)),data,g=0;
+  while(true){
+    var w=cfg.w.map(function(b){return b+r()*1.2;});
+    data=[];for(var i=0;i<cfg.n;i++)data.push(cfg.vals[pickW(r,w)]);
+    var c=cfg.vals.map(function(v){return data.filter(function(x){return x===v;}).length;});
+    var S_=suma(data),m=maxOf(c),srt=data.slice().sort(function(a,b){return a-b;});
+    var media=S_/cfg.n,med=mediana(srt),moda=cfg.vals[c.indexOf(m)];
+    var ok=(S_*10)%cfg.n===0&&c.filter(function(x){return x===m;}).length===1&&!(media===med&&med===moda);
+    if(ok||++g>20000)break;
+  }
+  return {cfg:cfg,data:data,sorted:srt,c:c,suma:S_,media:media,mediana:med,moda:moda,pos:posiciones(cfg.n),
+    conteo:{i:0,err:0,t:cfg.vals.map(function(){return 0;})},
+    tabla:{rev:0,prim:0,tot:cfg.vals.length*2+2,done:false},
+    orden:{n:0,err:0,done:false},
+    med:{rev:0,prim:0,done:false},
+    done:false,score:0};
+}
+function renderEj(k){
+  var e=S.E[k],cfg=e.cfg,p="e"+k,n=cfg.n,par=n%2===0,sig=k<3?"Continuar: ejercicio "+(k+2):"Continuar: reto final";
+  var html=''+
+  '<div class="head"><p class="kicker">Ejercicio '+(k+1)+' de 4</p><h2 id="et'+k+'" tabindex="-1">'+cfg.titulo+'</h2><p class="lead">'+cfg.ctx+'</p></div>'+
+  '<div class="paper"><span class="copia">'+ICON_NB+'Copia en tu cuaderno</span><h3>Ficha del ejercicio '+(k+1)+'</h3><dl class="ficha">'+
+    '<dt>Pregunta</dt><dd>'+cfg.pregunta+'</dd><dt>Variable</dt><dd>'+cfg.variable+'.</dd><dt>Tipo</dt><dd>Cuantitativa.</dd><dt>Datos</dt><dd>n = '+n+'.</dd>'+
+    '<dt>Valores</dt><dd>'+e.data.join(", ")+'</dd></dl></div>'+
+  // Paso 1
+  '<div class="lab paso" id="'+p+'p1"><h3><span class="num">1</span>Conteo</h3>'+
+    '<p>Toca la fila del valor que muestra el dato actual. Cada toque dibuja un palito en esa fila.</p>'+
+    '<div class="actual"><span>Dato <b id="'+p+'ci">1</b> de '+n+'</span><span class="big" id="'+p+'cv"></span></div>'+
+    '<div class="chips" id="'+p+'raw">'+e.data.map(function(v,i){return '<span class="chip" id="'+p+'r'+i+'">'+v+'</span>';}).join("")+'</div>'+
+    '<div class="trows" id="'+p+'rows">'+cfg.vals.map(function(v,i){return '<button class="trow" type="button" data-e="'+k+'" data-v="'+i+'" aria-label="Anotar un dato en la fila '+v+'"><span class="tv">'+v+'</span><span class="tm" id="'+p+'tm'+i+'"></span></button>';}).join("")+'</div>'+
+    '<p class="msg" id="'+p+'m1" aria-live="polite"></p></div>'+
+  // Paso 2
+  '<div class="lab paso" id="'+p+'p2" hidden><h3><span class="num">2</span>Tabla de frecuencias</h3>'+
+    '<p>Escribe f y x · f en cada fila. x · f es el valor multiplicado por su frecuencia: si x = 3 y f = 4, entonces x · f = 12. Al final escribe los totales.</p>'+
+    '<div class="tablewrap"><table class="dtable" id="'+p+'tab"><thead><tr><th>x</th><th>Conteo</th><th>f</th><th>x · f</th></tr></thead><tbody>'+
+      cfg.vals.map(function(v,i){return '<tr><td class="val">'+v+'</td><td class="tl" id="'+p+'tt'+i+'"></td><td><input type="text" inputmode="decimal" autocomplete="off" data-c="f" data-i="'+i+'" aria-label="f de '+v+'"></td><td><input type="text" inputmode="decimal" autocomplete="off" data-c="xf" data-i="'+i+'" aria-label="x por f de '+v+'"></td></tr>';}).join("")+
+    '</tbody><tfoot><tr><td class="val">Total</td><td></td><td><input type="text" inputmode="decimal" autocomplete="off" data-c="n" aria-label="Total de f, n"></td><td><input type="text" inputmode="decimal" autocomplete="off" data-c="s" aria-label="Suma de x por f"></td></tr></tfoot></table></div>'+
+    '<div class="row"><button class="btn primary" type="button" data-act="tabla" data-e="'+k+'">Revisar tabla</button><button class="btn ghost" type="button" data-act="vtabla" data-e="'+k+'" id="'+p+'vt" hidden>Mostrar respuestas</button><span class="status" id="'+p+'st2"></span></div>'+
+    '<p class="msg" id="'+p+'m2" aria-live="polite"></p></div>'+
+  // Paso 3
+  '<div class="lab paso" id="'+p+'p3" hidden><h3><span class="num">3</span>Ordena los datos</h3>'+
+    '<p>Toca los datos del menor al mayor. Si un número se repite, tócalo todas las veces antes de pasar al siguiente.</p>'+
+    '<div class="pool" id="'+p+'pool">'+e.data.map(function(v,i){return '<button class="dchip" type="button" data-e="'+k+'" data-i="'+i+'" aria-label="Dato '+v+'">'+v+'</button>';}).join("")+'</div>'+
+    '<div class="ordered" id="'+p+'ord">'+e.data.map(function(_,i){return '<span class="slot" id="'+p+'sl'+i+'"></span>';}).join("")+'</div>'+
+    '<p class="msg" id="'+p+'m3" aria-live="polite"></p></div>'+
+  // Paso 4
+  '<div class="lab paso" id="'+p+'p4" hidden><h3><span class="num">4</span>Medidas de tendencia central</h3>'+
+    '<p class="ref">De tu tabla: n = <b>'+n+'</b> y suma de x · f = <b>'+e.suma+'</b>.</p>'+
+    '<div class="ochips" id="'+p+'och">'+e.sorted.map(function(v,i){return '<span class="och"><span class="chip">'+v+'</span>'+(cfg.ayuda?'<small>'+(i+1)+'</small>':'')+'</span>';}).join("")+'</div>'+
+    '<p class="note" style="margin-top:10px">'+(cfg.ayuda?'Debajo de cada dato está su posición.':'Esta vez las posiciones no aparecen: cuéntalas tú.')+' Escribe los decimales con coma, por ejemplo 2,5.</p>'+
+    '<div class="medgrid">'+
+      '<div class="med"><h4>Media</h4>'+(cfg.ayuda?'<p class="hint">(suma de x · f) ÷ n</p>':'')+'<label><span class="sr">Media</span><input type="text" inputmode="decimal" autocomplete="off" data-m="media"></label></div>'+
+      '<div class="med"><h4>Mediana</h4>'+(cfg.ayuda?'<p class="hint">'+(par?'n es par: promedia los dos datos del centro.':'n es impar: es el dato de la posición (n + 1) ÷ 2.')+'</p>':'')+
+        '<label>'+(par?'Posiciones del centro':'Posición del centro')+(par?'<span class="pos2"><input type="text" inputmode="decimal" autocomplete="off" data-m="p1"><span>y</span><input type="text" inputmode="decimal" autocomplete="off" data-m="p2"></span>':'<input type="text" inputmode="decimal" autocomplete="off" data-m="p1">')+'</label>'+
+        '<label>Mediana<input type="text" inputmode="decimal" autocomplete="off" data-m="mediana"></label></div>'+
+      '<div class="med"><h4>Moda</h4>'+(cfg.ayuda?'<p class="hint">El valor con la f más grande.</p>':'')+'<label><span class="sr">Moda</span><input type="text" inputmode="decimal" autocomplete="off" data-m="moda"></label></div>'+
+    '</div>'+
+    '<div class="row" style="margin-top:14px"><button class="btn primary" type="button" data-act="med" data-e="'+k+'">Revisar medidas</button><button class="btn ghost" type="button" data-act="vmed" data-e="'+k+'" id="'+p+'vm" hidden>Mostrar respuestas</button><span class="status" id="'+p+'st4"></span></div>'+
+    '<p class="msg" id="'+p+'m4" aria-live="polite"></p></div>'+
+  '<div class="done" id="'+p+'done" hidden><p><b>¡Ejercicio '+(k+1)+' completo!</b> <span id="'+p+'sc"></span> Copia en tu cuaderno la tabla y las tres medidas antes de continuar.</p></div>'+
+  '<div class="row end"><button class="btn primary big" type="button" id="'+p+'next" data-act="next" data-e="'+k+'" disabled>'+sig+'</button></div>';
+  $("#s"+(k+4)).innerHTML=html;
+  updConteo(k);
+}
+
+/* Paso 1: conteo */
+function updConteo(k){
+  var e=S.E[k],p="#e"+k,i=e.conteo.i;
+  $(p+"ci").textContent=Math.min(i+1,e.cfg.n);
+  $(p+"cv").textContent=i<e.cfg.n?e.data[i]:"✓";
+  e.data.forEach(function(_,j){var ch=$(p+"r"+j);ch.classList.toggle("cur",j===i);ch.classList.toggle("hecho",j<i);});
+}
+function anotar(k,vi,btn){
+  var e=S.E[k],p="#e"+k;
+  if(e.conteo.i>=e.cfg.n)return;
+  var v=e.data[e.conteo.i];
+  if(e.cfg.vals[vi]!==v){
+    e.conteo.err++;SFX.mal();shake(btn);
+    msg(p+"m1","Ese dato es "+v+". Búscalo en la fila del "+v+".","bad");return;
+  }
+  e.conteo.t[vi]++;$(p+"tm"+vi).innerHTML=tallySVG(e.conteo.t[vi]);
+  e.conteo.i++;SFX.tic();msg(p+"m1","");
+  updConteo(k);
+  if(e.conteo.i===e.cfg.n){
+    $$(p+"rows .trow").forEach(function(b){b.disabled=true;});
+    msg(p+"m1","¡Conteo terminado"+(e.conteo.err?" con "+e.conteo.err+(e.conteo.err===1?" error":" errores"):" sin errores")+"! Ahora completa la tabla.","ok");
+    e.cfg.vals.forEach(function(_,i){$(p+"tt"+i).innerHTML=tallySVG(e.conteo.t[i]);});
+    $(p+"p2").hidden=false;SFX.bien();
+    setTimeout(function(){var f=$(p+"p2 input");if(f)f.focus({preventScroll:true});$(p+"p2").scrollIntoView({behavior:reduced?"auto":"smooth",block:"start"});},250);
+  }
+}
+
+/* Paso 2: tabla */
+function esperadoTabla(e,el){
+  var c=el.getAttribute("data-c"),i=+el.getAttribute("data-i");
+  if(c==="f")return e.c[i];
+  if(c==="xf")return e.cfg.vals[i]*e.c[i];
+  if(c==="n")return e.cfg.n;
+  return e.suma;
+}
+function revisarTabla(k){
+  var e=S.E[k],p="#e"+k;if(e.tabla.done)return;
+  var ins=$$(p+"tab input"),vacios=ins.filter(function(i){return !i.readOnly&&!i.value.trim();}).length;
+  if(vacios){msg(p+"m2","Completa todas las casillas antes de revisar. Te faltan "+vacios+".","bad");SFX.mal();return;}
+  e.tabla.rev++;
+  var ok=0,mal={};
+  ins.forEach(function(el){
+    if(igual(num(el.value),esperadoTabla(e,el))){ok++;el.classList.remove("bad");el.classList.add("ok");el.readOnly=true;}
+    else{el.classList.add("bad");mal[el.getAttribute("data-c")]=true;}
+  });
+  if(e.tabla.rev===1)e.tabla.prim=ok;
+  $(p+"st2").textContent="Revisiones: "+e.tabla.rev;
+  if(ok===ins.length){terminarTabla(k);return;}
+  SFX.mal();
+  var pistas=[];
+  if(mal.f)pistas.push("f: cuenta los palitos de cada fila.");
+  if(mal.xf)pistas.push("x · f: multiplica el valor x por su f.");
+  if(mal.n)pistas.push("n: suma todas las f.");
+  if(mal.s)pistas.push("Total de x · f: suma toda esa columna.");
+  msg(p+"m2","Tienes "+ok+" de "+ins.length+" casillas correctas. Corrige las rosadas. "+pistas.join(" "),"bad");
+  if(e.tabla.rev>=3)$(p+"vt").hidden=false;
+}
+function verTabla(k){
+  var e=S.E[k],p="#e"+k;
+  $$(p+"tab input").forEach(function(el){if(!el.readOnly){el.value=coma(esperadoTabla(e,el));el.classList.remove("bad");el.classList.add("rev");el.readOnly=true;}});
+  terminarTabla(k,true);
+}
+function terminarTabla(k,revelado){
+  var e=S.E[k],p="#e"+k;e.tabla.done=true;$(p+"vt").hidden=true;
+  msg(p+"m2",revelado?"Revisa en amarillo las respuestas correctas y corrígelas en tu cuaderno.":"¡Tabla correcta! "+(e.tabla.rev===1?"La tuviste completa en la primera revisión.":"En la primera revisión tuviste "+e.tabla.prim+" de "+e.tabla.tot+" casillas bien."),revelado?"":"ok");
+  $$(p+"p2 [data-act]").forEach(function(b){b.disabled=true;});
+  $(p+"p3").hidden=false;SFX.logro();
+  setTimeout(function(){$(p+"p3").scrollIntoView({behavior:reduced?"auto":"smooth",block:"start"});},300);
+}
+
+/* Paso 3: ordenar */
+function tocarOrden(k,b){
+  var e=S.E[k],p="#e"+k;if(e.orden.done||b.disabled)return;
+  var v=e.data[+b.getAttribute("data-i")],esp=e.sorted[e.orden.n];
+  if(v!==esp){e.orden.err++;SFX.mal();shake(b);msg(p+"m3","Todavía hay un número menor que "+v+". Búscalo.","bad");return;}
+  b.disabled=true;b.classList.add("used");
+  var s=$(p+"sl"+e.orden.n);s.textContent=v;s.classList.add("filled");
+  e.orden.n++;SFX.tic();msg(p+"m3","");
+  if(e.orden.n===e.cfg.n){
+    e.orden.done=true;SFX.logro();
+    msg(p+"m3","¡Datos ordenados"+(e.orden.err?" con "+e.orden.err+(e.orden.err===1?" error":" errores"):" sin errores")+"! Ahora calcula las medidas.","ok");
+    $(p+"p4").hidden=false;
+    setTimeout(function(){$(p+"p4").scrollIntoView({behavior:reduced?"auto":"smooth",block:"start"});},300);
+  }
+}
+
+/* Paso 4: medidas */
+function revisarMed(k){
+  var e=S.E[k],p="#e"+k;if(e.med.done)return;
+  var box=$(p+"p4"),g=function(m){return box.querySelector('[data-m="'+m+'"]');};
+  var ins=$$(p+"p4 .med input"),vacios=ins.filter(function(i){return !i.readOnly&&!i.value.trim();}).length;
+  if(vacios){msg(p+"m4","Completa todas las casillas antes de revisar.","bad");SFX.mal();return;}
+  e.med.rev++;
+  var par=e.cfg.n%2===0,items=[];
+  // media
+  items.push({ok:igual(num(g("media").value),e.media),els:[g("media")],pista:"Media: divide la suma de x · f entre n."});
+  // posiciones
+  var pe=[g("p1")];if(par)pe.push(g("p2"));
+  var pv=pe.map(function(x){return num(x.value);}).sort(function(a,b){return a-b;});
+  var pOk=pv.length===e.pos.length&&pv.every(function(x,i){return igual(x,e.pos[i]);});
+  items.push({ok:pOk,els:pe,pista:par?"Posiciones: n es par, así que el centro está en n ÷ 2 y en n ÷ 2 + 1.":"Posición: n es impar, así que el centro está en (n + 1) ÷ 2."});
+  items.push({ok:igual(num(g("mediana").value),e.mediana),els:[g("mediana")],pista:par?"Mediana: suma los dos datos del centro y divide entre 2.":"Mediana: busca en los datos ordenados el dato de esa posición."});
+  items.push({ok:igual(num(g("moda").value),e.moda),els:[g("moda")],pista:"Moda: es el valor con la f más grande en tu tabla."});
+  var ok=0,pistas=[];
+  items.forEach(function(it){
+    it.els.forEach(function(el){el.classList.toggle("ok",it.ok);el.classList.toggle("bad",!it.ok);if(it.ok)el.readOnly=true;});
+    if(it.ok)ok++;else pistas.push(it.pista);
+  });
+  if(e.med.rev===1)e.med.prim=ok;
+  $(p+"st4").textContent="Revisiones: "+e.med.rev;
+  if(ok===4){terminarEj(k);return;}
+  SFX.mal();
+  msg(p+"m4","Tienes "+ok+" de 4 respuestas correctas. "+pistas.join(" "),"bad");
+  if(e.med.rev>=3)$(p+"vm").hidden=false;
+}
+function verMed(k){
+  var e=S.E[k],p="#e"+k,box=$(p+"p4");
+  var vals={media:e.media,mediana:e.mediana,moda:e.moda,p1:e.pos[0],p2:e.pos[1]};
+  $$(p+"p4 .med input").forEach(function(el){
+    if(el.readOnly)return;
+    el.value=coma(vals[el.getAttribute("data-m")]);el.classList.remove("bad");el.classList.add("rev");el.readOnly=true;
+  });
+  terminarEj(k,true);
+}
+function terminarEj(k,revelado){
+  var e=S.E[k],p="#e"+k;
+  e.med.done=true;e.done=true;e.score=puntajeEj(e);
+  $(p+"vm").hidden=true;
+  $$(p+"p4 [data-act]").forEach(function(b){b.disabled=true;});
+  msg(p+"m4",revelado?"Revisa en amarillo las respuestas correctas.":"¡Medidas correctas! Media "+fmt(e.media)+", mediana "+fmt(e.mediana)+" y moda "+e.moda+".",revelado?"":"ok");
+  $(p+"sc").textContent="Puntaje del ejercicio: "+e.score+" de 100.";
+  $(p+"done").hidden=false;$(p+"next").disabled=false;
+  SFX.logro();guardarAvance();
+  setTimeout(function(){$(p+"done").scrollIntoView({behavior:reduced?"auto":"smooth",block:"center"});},300);
+}
+
+/* ===== Resultado ===== */
+function mostrarResultado(){
+  S.terminado=true;
+  var c=calcular();S.res=c;
+  var el=$("#rNota");el.textContent=coma(c.nota.toFixed(1));
+  el.classList.toggle("alta",c.nota>=4);el.classList.toggle("baja",c.nota<3);
+  $("#rDesemp").textContent="Desempeño "+c.desempeno.toLowerCase();
+  var li=["Reto de conceptos: "+c.q+" de "+QUIZ.length];
+  S.E.forEach(function(e,i){li.push("Ejercicio "+(i+1)+": "+e.score+" de 100");});
+  li.push("Reto final: "+c.r+" de "+RETO.length);
+  li.push("Nota antes de salidas: "+coma(c.base.toFixed(1)));
+  $("#rRes").innerHTML=li.map(function(t){return "<li>"+t+"</li>";}).join("")+
+    '<li class="'+(S.salidas?"pen":"")+'">Salidas del OVA: '+S.salidas+(S.salidas?" (−"+coma(c.pen.toFixed(1))+")":"")+'</li>';
+  guardarFinal();
+}
+var guardandoFinal=false;
+function guardarFinal(){
+  if(S.guardado||guardandoFinal)return;
+  guardandoFinal=true;
+  var sv=$("#rSave");sv.className="save";sv.textContent="Guardando tus resultados…";$("#btnRetry").hidden=true;
+  llamar(payload("Terminado")).then(function(r){
+    if(r&&r.ok){S.guardado=true;sv.className=r.demo?"save":"save ok";sv.textContent=r.demo?"Modo prueba: el resultado no se guardó en Sheets.":"✓ Tus resultados quedaron guardados.";}
+    else{sv.className="save bad";sv.textContent=(r&&r.error)||"No se pudo guardar.";$("#btnRetry").hidden=false;}
+  }).catch(function(err){sv.className="save bad";sv.textContent=errorRed(err)+" Toca Intentar de nuevo.";$("#btnRetry").hidden=false;})
+  .finally(function(){guardandoFinal=false;});
+}
+function salir(){
+  if(!S.guardado){$("#rSave").className="save bad";$("#rSave").textContent="Primero guarda tus resultados: toca Intentar de nuevo.";$("#btnRetry").hidden=false;return;}
+  S={};$("#userchip").hidden=true;$("#exitchip").hidden=true;$("#inUser").value="";$("#inPass").value="";$("#loginErr").textContent="";
+  go(0);
+}
+
+/* ===== Eventos ===== */
+$("#loginForm").addEventListener("submit",entrar);
+$("#showPass").addEventListener("change",function(){$("#inPass").type=this.checked?"text":"password";});
+$("#acepto").addEventListener("change",function(){$("#go2").disabled=!this.checked;});
+$("#go2").addEventListener("click",function(){SFX.clic();go(2);});
+$("#go3").addEventListener("click",function(){SFX.clic();go(3);});
+$("#go4").addEventListener("click",function(){SFX.clic();go(4);});
+$("#go9").addEventListener("click",function(){SFX.clic();go(9);mostrarResultado();});
+$("#exBtn").addEventListener("click",exSiguiente);
+$("#btnRetry").addEventListener("click",guardarFinal);
+$("#btnSalir").addEventListener("click",salir);
+$("#avOk").addEventListener("click",function(){$("#aviso").hidden=true;SFX.clic();});
+document.addEventListener("click",function(ev){
+  var t=ev.target;
+  var opt=t.closest(".opt");if(opt&&!opt.disabled){responderMC(opt);return;}
+  var tr=t.closest(".trow");if(tr&&!tr.disabled){anotar(+tr.getAttribute("data-e"),+tr.getAttribute("data-v"),tr);return;}
+  var dc=t.closest(".dchip");if(dc&&!dc.disabled){tocarOrden(+dc.getAttribute("data-e"),dc);return;}
+  var b=t.closest("[data-act]");if(!b||b.disabled)return;
+  var k=+b.getAttribute("data-e"),a=b.getAttribute("data-act");
+  if(a==="tabla")revisarTabla(k);
+  else if(a==="vtabla")verTabla(k);
+  else if(a==="med")revisarMed(k);
+  else if(a==="vmed")verMed(k);
+  else if(a==="next"){SFX.clic();go(k<3?k+5:8);}
+});
+document.addEventListener("animationend",function(ev){if(ev.target.classList)ev.target.classList.remove("nope");});
+document.addEventListener("input",function(ev){if(ev.target.tagName==="INPUT")ev.target.classList.remove("bad");});
+document.addEventListener("keydown",function(ev){
+  if(ev.key==="Escape"&&!$("#aviso").hidden){$("#aviso").hidden=true;return;}
+  if(ev.key!=="Enter"||ev.target.tagName!=="INPUT")return;
+  var tab=ev.target.closest(".dtable"),med=ev.target.closest(".medgrid");
+  if(!tab&&!med)return;
+  ev.preventDefault();
+  var ins=Array.prototype.slice.call((tab||med).querySelectorAll("input")),i=ins.indexOf(ev.target);
+  for(var j=i+1;j<ins.length;j++)if(!ins[j].readOnly){ins[j].focus();return;}
+  var btn=(tab?tab.closest(".paso"):med.closest(".paso")).querySelector('[data-act="tabla"],[data-act="med"]');
+  if(btn&&!btn.disabled)btn.click();
+});
+$("#sound").addEventListener("click",function(){
+  sonido=!sonido;this.textContent=sonido?"🔊":"🔇";
+  this.setAttribute("aria-pressed",String(sonido));this.setAttribute("aria-label",sonido?"Sonido activado":"Sonido desactivado");
+});
+
+/* ===== Arranque ===== */
+$$(".copia").forEach(function(el){if(!el.querySelector("svg"))el.insertAdjacentHTML("afterbegin",ICON_NB);});
+$("#penTxt").textContent=coma(PENALIZACION);
+buildSteps();
+$("#demoNote").hidden=!!URL_SHEETS;
+go(0);
+})();
+</script>
+</body>
+</html>
